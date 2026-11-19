@@ -1,0 +1,5 @@
+# Used by GitHub Actions to retrain, export and test the model.
+# The Space itself is static and installs nothing.
+scikit-learn==1.9.1
+pandas>=2.2
+numpy>=1.26

@@ -1,0 +1,58 @@
+name: CI/CD to Hugging Face Space
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  HF_USERNAME: Vvshockk
+  SPACE_NAME: credit-risk-mlp
+
+jobs:
+  test:
+    name: Test model and web app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pytest
+
+      - name: Check no file exceeds the Hugging Face 10 MB limit
+        run: |
+          big=$(find . -path ./.git -prune -o -type f -size +10M -print)
+          if [ -n "$big" ]; then echo "Files over 10 MB:"; echo "$big"; exit 1; fi
+
+      - name: Python tests (retrain, quality floor, exported weights)
+        run: pytest -v
+
+      - name: Browser model matches scikit-learn
+        run: node tests/check_predict.js
+
+  deploy:
+    name: Deploy to Hugging Face Space
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Push to the Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: git push --force "https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}" main

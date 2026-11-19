@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Credit default risk check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #18212f;
+    --muted: #5b6472;
+    --paper: #ffffff;
+    --panel: #f5f7fa;
+    --rule: #d9dee5;
+    --accent: #1f5e8c;
+    --risk: #b3261e;
+    --safe: #2f6b3a;
+    --risk-soft: #fbe9e7;
+    --safe-soft: #e8f3ea;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e7ebf0;
+      --muted: #a3acb9;
+      --paper: #12171f;
+      --panel: #1a212b;
+      --rule: #2f3946;
+      --accent: #7fb3dc;
+      --risk: #f2857b;
+      --safe: #8cc99a;
+      --risk-soft: #3a1f1d;
+      --safe-soft: #1d3324;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 32px 20px 48px; }
+  header h1 { font-size: 1.9rem; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
+  header p { margin: 0; color: var(--muted); max-width: 62ch; }
+  .grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 32px; margin-top: 28px; }
+  h2 { font-size: 1.1rem; font-weight: 600; margin: 0 0 12px; }
+  .fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 28px; }
+  label { display: block; font-size: 0.9rem; color: var(--muted); margin-bottom: 4px; }
+  input, select {
+    width: 100%; padding: 8px 10px; font: inherit; color: var(--ink);
+    background: var(--paper); border: 1px solid var(--rule); border-radius: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  input:focus-visible, select:focus-visible, button:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  .statement { overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; }
+  .statement table { min-width: 520px; }
+  .statement th, .statement td { padding: 8px; border-bottom: 1px solid var(--rule); text-align: left; }
+  .statement tr:last-child td, .statement tr:last-child th { border-bottom: none; }
+  .statement thead th { background: var(--panel); font-weight: 500; font-size: 0.9rem; }
+  .statement tbody th { font-weight: 500; font-size: 0.9rem; white-space: nowrap; color: var(--muted); }
+  .statement td input, .statement td select { padding: 6px 8px; font-size: 0.95rem; }
+  .statement td:nth-child(2) { width: 36%; }
+  .hint { color: var(--muted); font-size: 0.85rem; margin: 8px 0 0; }
+  .check {
+    margin-top: 24px; padding: 11px 22px; font: inherit; font-weight: 600;
+    color: #fff; background: var(--accent); border: none; border-radius: 6px; cursor: pointer;
+  }
+  @media (prefers-color-scheme: dark) { .check { color: #0d1620; } }
+  .result { background: var(--panel); border-radius: 10px; padding: 22px; position: sticky; top: 16px; }
+  .prob { font-size: 3rem; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+  .prob-label { color: var(--muted); margin: 6px 0 18px; }
+  .scale { position: relative; height: 14px; border-radius: 7px; margin: 0 0 28px;
+           background: linear-gradient(to right, var(--safe-soft) 0 29%, var(--risk-soft) 29% 100%);
+           border: 1px solid var(--rule); }
+  .cutoff { position: absolute; top: -6px; bottom: -6px; left: 29%; width: 2px; background: var(--ink); }
+  .cutoff span { position: absolute; top: 24px; left: -20px; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+  .needle { position: absolute; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
+            background: var(--ink); border: 3px solid var(--paper); transition: left 0.35s ease; }
+  @media (prefers-reduced-motion: reduce) { .needle { transition: none; } }
+  .verdict { padding: 12px 14px; border-radius: 6px; margin-bottom: 22px; }
+  .verdict.flag { background: var(--risk-soft); color: var(--risk); }
+  .verdict.low { background: var(--safe-soft); color: var(--safe); }
+  .verdict strong { display: block; }
+  .examples { list-style: none; padding: 0; margin: 0; }
+  .examples li { margin-bottom: 8px; }
+  .examples button {
+    width: 100%; text-align: left; font: inherit; color: var(--ink); background: var(--paper);
+    border: 1px solid var(--rule); border-radius: 6px; padding: 10px 12px; cursor: pointer;
+  }
+  .examples button:hover { border-color: var(--accent); }
+  .examples small { display: block; color: var(--muted); }
+  .about { margin-top: 44px; border-top: 1px solid var(--rule); padding-top: 28px; display: grid;
+           grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
+  .about p { margin: 0 0 12px; max-width: 62ch; }
+  .metrics th, .metrics td { padding: 7px 10px; border-bottom: 1px solid var(--rule); text-align: right;
+                             font-variant-numeric: tabular-nums; }
+  .metrics th:first-child, .metrics td:first-child { text-align: left; }
+  .metrics thead th { font-weight: 500; color: var(--muted); font-size: 0.9rem; }
+  footer { margin-top: 36px; color: var(--muted); font-size: 0.9rem; }
+  footer a, .about a { color: var(--accent); }
+  .error { color: var(--risk); }
+  @media (max-width: 860px) {
+    .grid, .about { grid-template-columns: 1fr; }
+    .result { position: static; }
+    .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Credit default risk check</h1>
+    <p>Estimate the chance that a credit card holder misses next month's payment. Amounts are in
+       New Taiwan dollars, as in the data the model was trained on. The model runs entirely in your browser.</p>
+  </header>
+
+  <div class="grid">
+    <form id="form" novalidate>
+      <h2>Card holder</h2>
+      <div class="fields">
+        <div><label for="LIMIT_BAL">Credit limit (NT$)</label><input id="LIMIT_BAL" type="number" min="0" step="1000" required></div>
+        <div><label for="AGE">Age</label><input id="AGE" type="number" min="18" max="100" required></div>
+        <div><label for="SEX">Sex</label>
+          <select id="SEX"><option value="1">Male</option><option value="2">Female</option></select></div>
+        <div><label for="EDUCATION">Education</label>
+          <select id="EDUCATION"><option value="1">Graduate school</option><option value="2">University</option>
+            <option value="3">High school</option><option value="4">Other</option></select></div>
+        <div><label for="MARRIAGE">Marital status</label>
+          <select id="MARRIAGE"><option value="1">Married</option><option value="2">Single</option>
+            <option value="3">Other</option></select></div>
+      </div>
+
+      <h2>Last six months</h2>
+      <div class="statement">
+        <table>
+          <thead><tr><th scope="col">Month (2005)</th><th scope="col">Repayment status</th>
+            <th scope="col">Bill amount (NT$)</th><th scope="col">Amount paid (NT$)</th></tr></thead>
+          <tbody id="months"></tbody>
+        </table>
+      </div>
+      <p class="hint">Newest month at the top. "Paid minimum only" means the card holder carried a balance but made the minimum payment.</p>
+      <button class="check" type="submit">Check default risk</button>
+      <p id="formError" class="error" role="alert"></p>
+    </form>
+
+    <aside class="result" aria-live="polite">
+      <div class="prob" id="prob">–</div>
+      <div class="prob-label">estimated probability of default next month</div>
+      <div class="scale" aria-hidden="true">
+        <div class="cutoff"><span>cutoff 0.29</span></div>
+        <div class="needle" id="needle" style="left:0%"></div>
+      </div>
+      <div class="verdict" id="verdict">Fill in the form or pick one of the real applicants below.</div>
+
+      <h2>Real applicants from the test set</h2>
+      <ul class="examples" id="examples"></ul>
+    </aside>
+  </div>
+
+  <section class="about">
+    <div>
+      <h2>About this model</h2>
+      <p>A neural network with two hidden layers (64 and 32 units) trained with scikit-learn on the UCI
+         Default of Credit Card Clients data: 30,000 card holders in Taiwan, April to September 2005
+         (Yeh &amp; Lien, 2009). It is the configuration selected in my Module 8 assignment for AAI6610.</p>
+      <p>At the usual 0.50 cutoff the network misses most defaulters, so this app flags anyone at 0.29 or
+         above. That cutoff was chosen from cross-validated F1 on the training data only.</p>
+      <p>This is a course project, not a lending tool, and it should not be used to make decisions about real people.</p>
+    </div>
+    <div>
+      <h2>How it performs</h2>
+      <table class="metrics" id="metrics">
+        <thead><tr><th>Held-out test set (<span id="testRows"></span> card holders)</th><th>Cutoff 0.29</th><th>Cutoff 0.50</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="hint">Computed when the model was exported, and checked again by the CI pipeline on every deployment.</p>
+    </div>
+  </section>
+
+  <footer>
+    Source code and CI/CD pipeline:
+    <a href="https://github.com/VishakShashikumar/credit-risk-mlp">github.com/VishakShashikumar/credit-risk-mlp</a>.
+    Vishak Shashikumar, Northeastern University.
+  </footer>
+</div>
+
+<script src="predict.js"></script>
+<script>
+(function () {
+  "use strict";
+  const STATUS = [[-2, "No credit used"], [-1, "Paid in full"], [0, "Paid minimum only"]]
+    .concat([1, 2, 3, 4, 5, 6, 7, 8].map((n) => [n, n + (n > 1 ? " months late" : " month late")]));
+  const PAY = ["PAY_0", "PAY_2", "PAY_3", "PAY_4", "PAY_5", "PAY_6"];
+  const BILL = [1, 2, 3, 4, 5, 6].map((i) => "BILL_AMT" + i);
+  const PAID = [1, 2, 3, 4, 5, 6].map((i) => "PAY_AMT" + i);
+
+  // Four real applicants from the held-out test set (original dataset IDs).
+  const EXAMPLES = [
+    { title: "Applicant 11441", note: "Defaulted. The model flags them.",
+      values: [230000, 2, 2, 2, 29, 2, 2, 2, 0, 0, 0, 232044, 236365, 229553, 190525, 192974, 186407, 9500, 0, 6829, 7300, 7000, 7000] },
+    { title: "Applicant 11518", note: "Did not default. Rated low risk.",
+      values: [290000, 2, 2, 2, 33, 0, 0, 0, 0, 0, 0, 14026, 9154, 2778, 9981, 23989, 22667, 9000, 2000, 9000, 23000, 22000, 1797] },
+    { title: "Applicant 25407", note: "Defaulted, but the model misses them.",
+      values: [100000, 2, 1, 2, 27, 0, 0, 0, 0, 0, 0, 40576, 41876, 42699, 44020, 44588, 45521, 1977, 1800, 2032, 1600, 1652, 1734] },
+    { title: "Applicant 4456", note: "Did not default, but the model flags them.",
+      values: [60000, 2, 1, 2, 28, 1, 2, 0, 0, 0, 0, 47262, 46226, 47557, 48464, 49532, 50552, 0, 2100, 2000, 2000, 2000, 3000] }
+  ];
+
+  const tbody = document.getElementById("months");
+  const MONTHS = ["September", "August", "July", "June", "May", "April"];
+  function statusSelect(id) {
+    const s = document.createElement("select"); s.id = id;
+    STATUS.forEach(([v, t]) => { const o = document.createElement("option"); o.value = v; o.textContent = t; s.appendChild(o); });
+    s.value = "0"; return s;
+  }
+  function amount(id) {
+    const i = document.createElement("input"); i.id = id; i.type = "number"; i.step = "1"; i.required = true;
+    return i;
+  }
+  MONTHS.forEach((month, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<th scope='row'>" + month + "</th>";
+    [[statusSelect(PAY[i]), "Repayment status"], [amount(BILL[i]), "Bill amount"], [amount(PAID[i]), "Amount paid"]]
+      .forEach(([el, what]) => {
+        el.setAttribute("aria-label", what + ", " + month);
+        const td = document.createElement("td"); td.appendChild(el); tr.appendChild(td);
+      });
+    tbody.appendChild(tr);
+  });
+
+  let MODEL = null;
+  const $ = (id) => document.getElementById(id);
+
+  function fill(values, features) {
+    features.forEach((f, i) => { $(f).value = values[i]; });
+  }
+
+  function read(features) {
+    const a = {};
+    for (const f of features) {
+      const raw = $(f).value;
+      if (raw === "" || isNaN(Number(raw))) return null;
+      a[f] = Number(raw);
+    }
+    return a;
+  }
+
+  function show(prob) {
+    const t = MODEL.threshold;
+    $("prob").textContent = prob.toFixed(2);
+    $("needle").style.left = (prob * 100).toFixed(1) + "%";
+    const v = $("verdict");
+    if (prob >= t) {
+      v.className = "verdict flag";
+      v.innerHTML = "<strong>Flag for review</strong>The estimate is above the " + t.toFixed(2) + " cutoff.";
+    } else {
+      v.className = "verdict low";
+      v.innerHTML = "<strong>Low risk</strong>The estimate is below the " + t.toFixed(2) + " cutoff.";
+    }
+  }
+
+  function check() {
+    if (!MODEL) return;
+    const a = read(MODEL.features);
+    if (!a) { $("formError").textContent = "Every field needs a number. Fill in the blank ones, or pick an example."; return; }
+    $("formError").textContent = "";
+    show(CreditModel.predictProba(MODEL, a));
+  }
+
+  function metricsTable(info) {
+    const t = info.at_threshold, d = info.at_default_0_50;
+    const pct = (x) => (x * 100).toFixed(2) + "%";
+    const n = (x) => x.toLocaleString("en-US");
+    const rows = [["Accuracy", pct(t.accuracy), pct(d.accuracy)],
+      ["Precision", t.precision.toFixed(3), d.precision.toFixed(3)],
+      ["Recall", t.recall.toFixed(3), d.recall.toFixed(3)],
+      ["F1", t.f1.toFixed(3), d.f1.toFixed(3)],
+      ["Defaulters caught", n(t.defaulters_caught), n(d.defaulters_caught)],
+      ["Defaulters missed", n(t.defaulters_missed), n(d.defaulters_missed)],
+      ["False alarms", n(t.false_alarms), n(d.false_alarms)]];
+    $("metrics").querySelector("tbody").innerHTML =
+      rows.map((r) => "<tr><td>" + r.join("</td><td>") + "</td></tr>").join("");
+    $("testRows").textContent = n(info.test_rows);
+  }
+
+  $("form").addEventListener("submit", (e) => { e.preventDefault(); check(); });
+
+  fetch("model.json")
+    .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then((m) => {
+      MODEL = m;
+      metricsTable(m.info);
+      const list = $("examples");
+      EXAMPLES.forEach((ex) => {
+        const li = document.createElement("li");
+        const b = document.createElement("button"); b.type = "button";
+        b.innerHTML = ex.title + "<small>" + ex.note + "</small>";
+        b.addEventListener("click", () => { fill(ex.values, m.features); check(); });
+        li.appendChild(b); list.appendChild(li);
+      });
+      fill(EXAMPLES[1].values, m.features);
+    })
+    .catch((err) => {
+      $("verdict").textContent = "The model file could not be loaded (" + err.message + "). Reload the page to try again.";
+    });
+})();
+</script>
+</body>
+</html>
